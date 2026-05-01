@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   rdp:
-    runs-on: windows-latest
+    runs-on: macos-latest
     timeout-minutes: 300
 
     env:
