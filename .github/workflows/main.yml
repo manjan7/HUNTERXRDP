@@ -1,9 +1,9 @@
 name: Ubuntu Desktop XRDP with Tailscale
 
 on:
-workflow_dispatch:
-inputs:
-ts_authkey:
+  workflow_dispatch:
+    inputs:
+      ts_authkey:
 description: Tailscale Auth Key
 required: true
 
