@@ -1,91 +1,58 @@
-name: DEVXRDP - Windows RDP with Tailscale (5 Hours)
+name: Ubuntu Desktop XRDP with Tailscale
 
 on:
-  workflow_dispatch:
-    inputs:
-      ts_authkey:
-        description: Tailscale Auth Key (tskey-auth-XXXX)
-        required: true
-
-permissions:
-  contents: read
-
-concurrency:
-  group: devxrdp-single-session
-  cancel-in-progress: false
+workflow_dispatch:
+inputs:
+ts_authkey:
+description: Tailscale Auth Key
+required: true
 
 jobs:
-  rdp:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
+ubuntu-rdp:
+runs-on: ubuntu-latest
+timeout-minutes: 300
 
-    env:
-      RDP_USER: DEVXRDP
-      RDP_PASS: Rdp!9Xq#2025
-      TS_HOSTNAME: DEVXRDP
+env:
+  USERNAME: devxrdp
+  PASSWORD: UbuntuRDP2025!
+  TS_HOSTNAME: UbuntuRDP
 
-    steps:
-      - name: Install and Start Tailscale
-        shell: pwsh
-        run: |
-          $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+steps:
+  - name: Install XFCE + XRDP
+    run: |
+      sudo apt-get update
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        xfce4 xfce4-goodies xrdp
 
-          if (-not (Test-Path $exe)) {
-            Invoke-WebRequest `
-              -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" `
-              -OutFile "$env:TEMP\tailscale.msi"
+  - name: Create User
+    run: |
+      sudo useradd -m -s /bin/bash $USERNAME || true
+      echo "$USERNAME:$PASSWORD" | sudo chpasswd
+      echo "startxfce4" | sudo tee /home/$USERNAME/.xsession
+      sudo chown $USERNAME:$USERNAME /home/$USERNAME/.xsession
 
-            Start-Process msiexec.exe -Wait `
-              -ArgumentList "/i","$env:TEMP\tailscale.msi","/quiet","/norestart"
-          }
+  - name: Configure XRDP
+    run: |
+      sudo adduser xrdp ssl-cert
+      sudo systemctl enable xrdp
+      sudo systemctl restart xrdp
 
-          & $exe logout | Out-Null
-          & $exe up `
-            --authkey "${{ inputs.ts_authkey }}" `
-            --hostname "$env:TS_HOSTNAME" `
-            --accept-dns=false `
-            --reset
+  - name: Install Tailscale
+    run: |
+      curl -fsSL https://tailscale.com/install.sh | sh
+      sudo tailscale up \
+        --authkey "${{ inputs.ts_authkey }}" \
+        --hostname "$TS_HOSTNAME"
 
-      - name: Show Tailscale IP
-        shell: pwsh
-        run: |
-          $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-          $ip = & $exe ip -4 | Select-Object -First 1
+  - name: Show Connection Info
+    run: |
+      echo "================================="
+      echo "USER : $USERNAME"
+      echo "PASS : $PASSWORD"
+      echo "IP   : $(tailscale ip -4)"
+      echo "PORT : 3389"
+      echo "================================="
 
-          Write-Host ""
-          Write-Host "================================="
-          Write-Host " RDP USER : DEVXRDP"
-          Write-Host " RDP IP   : $ip"
-          Write-Host "================================="
-
-      - name: Enable RDP User
-        shell: pwsh
-        run: |
-          $sec = ConvertTo-SecureString $env:RDP_PASS -AsPlainText -Force
-
-          if (-not (Get-LocalUser -Name $env:RDP_USER -ErrorAction SilentlyContinue)) {
-            New-LocalUser -Name $env:RDP_USER -Password $sec -AccountNeverExpires
-            Add-LocalGroupMember Administrators $env:RDP_USER
-            Add-LocalGroupMember "Remote Desktop Users" $env:RDP_USER
-          } else {
-            Set-LocalUser -Name $env:RDP_USER -Password $sec
-            Enable-LocalUser $env:RDP_USER
-          }
-
-          Set-ItemProperty `
-            "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-            -Name fDenyTSConnections `
-            -Value 0
-
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-      - name: Keep RDP Alive (5 Hours)
-        shell: pwsh
-        run: |
-          $end = (Get-Date).AddHours(5)
-          while ((Get-Date) -lt $end) {
-            Start-Sleep -Seconds 60
-          }
-
-      - name: Session Ended
-        run: echo DEVXRDP session finished
+  - name: Keep Alive
+    run: |
+      sleep 18000
