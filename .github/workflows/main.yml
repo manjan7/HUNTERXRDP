@@ -4,55 +4,59 @@ on:
   workflow_dispatch:
     inputs:
       ts_authkey:
-description: Tailscale Auth Key
-required: true
+        description: 'Tailscale Auth Key'
+        required: true
 
 jobs:
-ubuntu-rdp:
-runs-on: ubuntu-latest
-timeout-minutes: 300
+  ubuntu-rdp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
 
-env:
-  USERNAME: devxrdp
-  PASSWORD: UbuntuRDP2025!
-  TS_HOSTNAME: UbuntuRDP
+    env:
+      USERNAME: devxrdp
+      PASSWORD: UbuntuRDP2025!
+      TS_HOSTNAME: UbuntuRDP
 
-steps:
-  - name: Install XFCE + XRDP
-    run: |
-      sudo apt-get update
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        xfce4 xfce4-goodies xrdp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Create User
-    run: |
-      sudo useradd -m -s /bin/bash $USERNAME || true
-      echo "$USERNAME:$PASSWORD" | sudo chpasswd
-      echo "startxfce4" | sudo tee /home/$USERNAME/.xsession
-      sudo chown $USERNAME:$USERNAME /home/$USERNAME/.xsession
+      - name: Install XFCE + XRDP
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 xfce4-goodies xrdp
 
-  - name: Configure XRDP
-    run: |
-      sudo adduser xrdp ssl-cert
-      sudo systemctl enable xrdp
-      sudo systemctl restart xrdp
+      - name: Create User
+        run: |
+          sudo useradd -m -s /bin/bash $USERNAME || true
+          echo "$USERNAME:$PASSWORD" | sudo chpasswd
+          echo "startxfce4" | sudo tee /home/$USERNAME/.xsession
+          sudo chown $USERNAME:$USERNAME /home/$USERNAME/.xsession
 
-  - name: Install Tailscale
-    run: |
-      curl -fsSL https://tailscale.com/install.sh | sh
-      sudo tailscale up \
-        --authkey "${{ inputs.ts_authkey }}" \
-        --hostname "$TS_HOSTNAME"
+      - name: Configure XRDP
+        run: |
+          sudo adduser xrdp ssl-cert
+          sudo systemctl enable xrdp
+          sudo systemctl restart xrdp
 
-  - name: Show Connection Info
-    run: |
-      echo "================================="
-      echo "USER : $USERNAME"
-      echo "PASS : $PASSWORD"
-      echo "IP   : $(tailscale ip -4)"
-      echo "PORT : 3389"
-      echo "================================="
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up \
+            --authkey "${{ inputs.ts_authkey }}" \
+            --hostname "$TS_HOSTNAME"
 
-  - name: Keep Alive
-    run: |
-      sleep 18000
+      - name: Show Connection Info
+        run: |
+          sleep 5
+          echo "================================="
+          echo "USER : $USERNAME"
+          echo "PASS : $PASSWORD"
+          echo "IP   : $(sudo tailscale ip -4)"
+          echo "PORT : 3389"
+          echo "================================="
+
+      - name: Keep Alive
+        run: |
+          sleep 18000
