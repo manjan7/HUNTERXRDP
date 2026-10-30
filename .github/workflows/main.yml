@@ -23,50 +23,39 @@ jobs:
       RDP_USER: DEVXRDP
       RDP_PASS: Rdp!9Xq#2025
       TS_HOSTNAME: DEVXRDP
-      TS_EXIT_NODE_IP: 100.114.130.18
 
     steps:
       - name: Install and Start Tailscale
         shell: pwsh
         run: |
           $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-
           if (-not (Test-Path $exe)) {
             Invoke-WebRequest `
               -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" `
               -OutFile "$env:TEMP\tailscale.msi"
-
             Start-Process msiexec.exe -Wait `
               -ArgumentList "/i","$env:TEMP\tailscale.msi","/quiet","/norestart"
           }
-
           & $exe logout | Out-Null
           & $exe up `
             --authkey "${{ inputs.ts_authkey }}" `
             --hostname "$env:TS_HOSTNAME" `
             --accept-dns=false `
-            --exit-node "$env:TS_EXIT_NODE_IP" `
-            --exit-node-allow-lan-access=true `
             --reset
-
       - name: Show Tailscale IP
         shell: pwsh
         run: |
           $exe = "$env:ProgramFiles\Tailscale\tailscale.exe"
           $ip = & $exe ip -4 | Select-Object -First 1
-
           Write-Host ""
           Write-Host "================================="
           Write-Host " RDP USER : DEVXRDP"
           Write-Host " RDP IP   : $ip"
-          Write-Host " EXIT NODE: $env:TS_EXIT_NODE_IP"
           Write-Host "================================="
-
       - name: Enable RDP User
         shell: pwsh
         run: |
           $sec = ConvertTo-SecureString $env:RDP_PASS -AsPlainText -Force
-
           if (-not (Get-LocalUser -Name $env:RDP_USER -ErrorAction SilentlyContinue)) {
             New-LocalUser -Name $env:RDP_USER -Password $sec -AccountNeverExpires
             Add-LocalGroupMember Administrators $env:RDP_USER
@@ -75,14 +64,11 @@ jobs:
             Set-LocalUser -Name $env:RDP_USER -Password $sec
             Enable-LocalUser $env:RDP_USER
           }
-
           Set-ItemProperty `
             "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
             -Name fDenyTSConnections `
             -Value 0
-
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
       - name: Keep RDP Alive (5 Hours)
         shell: pwsh
         run: |
@@ -90,6 +76,5 @@ jobs:
           while ((Get-Date) -lt $end) {
             Start-Sleep -Seconds 60
           }
-
       - name: Session Ended
         run: echo DEVXRDP session finished
