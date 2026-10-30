@@ -23,6 +23,7 @@ jobs:
       RDP_USER: DEVXRDP
       RDP_PASS: Rdp!9Xq#2025
       TS_HOSTNAME: DEVXRDP
+      TS_EXIT_NODE_IP: 100.114.130.18
 
     steps:
       - name: Install and Start Tailscale
@@ -44,6 +45,8 @@ jobs:
             --authkey "${{ inputs.ts_authkey }}" `
             --hostname "$env:TS_HOSTNAME" `
             --accept-dns=false `
+            --exit-node "$env:TS_EXIT_NODE_IP" `
+            --exit-node-allow-lan-access=true `
             --reset
 
       - name: Show Tailscale IP
@@ -56,6 +59,7 @@ jobs:
           Write-Host "================================="
           Write-Host " RDP USER : DEVXRDP"
           Write-Host " RDP IP   : $ip"
+          Write-Host " EXIT NODE: $env:TS_EXIT_NODE_IP"
           Write-Host "================================="
 
       - name: Enable RDP User
